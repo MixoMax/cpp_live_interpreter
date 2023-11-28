@@ -143,19 +143,20 @@ def get_sys_info() -> list[str]:
             
 def print_help():
     cmd_dict = { #command: description
-        "help": "Show this help message",
-        "credits": "Show credits",
-        "license": "Show license",
-        "version": "Show version",
+        "help*": "Show this help message",
+        "credits*": "Show credits",
+        "license*": "Show license",
+        "version*": "Show version",
         "exit": "Exit the interpreter",
         "end": "End the code input and run the code",
         "run": "Run the code without ending the code input (eg. variables will be saved)",
         "pop": "Delete the last line of code",
-        "clear": "Clear the screen",
-        "show": "Show the current code"
+        "clear": "Clear the screen and delete all code",
+        "show": "Show the current code with syntax highlighting",
     }
+    print("Commands with * are also available as command line arguments\n")
     for cmd, desc in cmd_dict.items():
-        print(cmd.ljust(10),"-\t", desc)
+        print(f"{cmd: <10} - {desc}")
 
 def print_credits():
     # Print credits and contact info
@@ -167,12 +168,13 @@ def print_credits():
     credits_text = ["This Project was made completely by myself.",
                     "It is open source and you can find the source code on github.",
                     "Any contributions are welcome: https://github.com/MixoMax/cpp_live_interpreter",
-                    "If you have any questions, suggestions, or problems, feel free to contact me."
+                    "If you have any questions, suggestions, or problems, feel free to contact me.",
+                    ""
     ]
 
     print("\n".join(credits_text))
     for name, contact in credits_and_contact.items():
-        print(name.ljust(10), "-", contact)
+        print(f"{name: <10} - {contact}")
 
 def print_license():
     license_text = [
@@ -233,9 +235,6 @@ def color_print_code(code: list[str]):
 
         # Print the syntax-highlighted line
         print(line)
-    
-            
-    
 
 def main():
     print_start_message()
