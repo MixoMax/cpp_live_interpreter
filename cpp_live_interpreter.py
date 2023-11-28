@@ -1,23 +1,26 @@
+from rich.syntax import Syntax
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.text import Text
+from rich import print as rprint
+
 import subprocess
 import os
 import sys
 import platform
-import re
+import json
 import time
+
 
 version = "r0.1-alpha"
 date = "2023-11-28"
 
 
 def compile(input_file:str, output_file:str):
-    compiler = get_compiler() #"clang" or "g++"
+    curr_settings = load_settings()
+    compiler = curr_settings["compiler"]
     
-    if compiler == "clang":
-        cmd = f"clang++ -o {output_file} {input_file}"
-    elif compiler == "g++":
-        cmd = f"g++ -o {output_file} {input_file}"
-    
-    print(cmd)
+    cmd = f"{compiler} -o {output_file} {input_file}"
     
     popen = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
@@ -47,12 +50,17 @@ def run_cpp_code(code:list[str]):
     
     popen = subprocess.Popen(["./temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
-    print(popen.stdout.read().decode(), end="")
-    print(popen.stderr.read().decode(), end="")
+    output = popen.stdout.read().decode()
+    error = popen.stderr.read().decode()
+    
+    rprint(Text(output, style="bold"))
+    if error != "":
+        rprint(Text(error, style="bold red"))
+    
     
     exit_code = popen.returncode
     t_finish_run = time.time()
-    print(f"programm exited with code {exit_code} (0x{exit_code:02X}) after {t_finish_run - t_start:.3f}s (compile: {t_finish_compile - t_start:.3f}s, run: {t_finish_run - t_finish_compile:.3f}s)")
+    print(f"programm exited with code {exit_code} (0x{exit_code:02X}) after {t_finish_run - t_start:.3f}s (compile: {t_finish_compile - t_start:.2f}s, run: {t_finish_run - t_finish_compile:.2f}s)")
 
 def insert_code_and_clean_up(code:list[str]) -> list[str]:
     # Insert code into template and clean up
@@ -60,7 +68,7 @@ def insert_code_and_clean_up(code:list[str]) -> list[str]:
     
     includes = ["#include <iostream>"]
     for line in code:
-        if line.startswith("#include"):
+        if line.startswith("#include") and line not in includes:
             includes.append(line)
             
     code = [line for line in code if not line.startswith("#include")]
@@ -77,11 +85,23 @@ def insert_code_and_clean_up(code:list[str]) -> list[str]:
         "//End of auto injected code"
     ]
     
-    code = template_lines + code + ["}"]
+    #check if a main() function is already defined
+    main_function_exists = False
+    for line in code:
+        if line.startswith("int main"):
+            main_function_exists = True
+            break
     
+    if main_function_exists:
+        #remove "int main()" from template
+        idx = template_lines.index("int main() {")
+        template_lines.pop(idx)
     
+    code = template_lines + code
     
-    
+    if not main_function_exists:
+        code.append("}")
+        
     return code
 
 def code_will_run(code:list[str]) -> bool:
@@ -160,6 +180,7 @@ def print_help():
         "license*": "Show license",
         "version*": "Show version",
         "exit": "Exit the interpreter",
+        "settings*": "Show and edit settings",
         "end": "End the code input and run the code",
         "run": "Run the code without ending the code input (eg. variables will be saved)",
         "pop": "Delete the last line of code",
@@ -207,49 +228,27 @@ def print_start_message():
     print(*start_message, sep="\n")
 
 def color_print_code(code: list[str]):
-    # ANSI escape codes for syntax highlighting
-    COLOR_KEYWORD = '\033[94m'  # Blue
-    COLOR_TYPE = '\033[95m'     # Magenta
-    COLOR_FUNC = '\033[93m'     # Yellow
-    COLOR_STRING = '\033[92m'   # Green
-    COLOR_COMMENT = '\033[90m'  # Dark grey
-    COLOR_NUMBER = '\033[96m'   # Cyan
-    COLOR_RESET = '\033[0m'     # Reset to default
-
-    # Regular expressions for C++ syntax elements
-    keywords = r'\b(asm|auto|break|case|catch|class|const|const_cast|continue|default|delete|do|else|enum|explicit|export|extern|for|friend|goto|if|mutable|namespace|new|operator|private|protected|public|register|reinterpret_cast|return|sizeof|static|static_cast|struct|switch|template|this|throw|try|typedef|typeid|typename|union|using|virtual|volatile|while|alignas|alignof|constexpr|decltype|noexcept|nullptr|static_assert|thread_local|override|final|import|module|co_await|co_return|co_yield|concept|requires|consteval|constinit)\b'
-    types = r'\b(void|char|short|int|long|float|double|bool|unsigned|signed|size_t|string)\b'
-    funcs = r'\b(main|printf|scanf|cout|cin|endl|std|getline|reinterpret_cast|static_cast|dynamic_cast|const_cast|typeid|sizeof|alignof|decltype|noexcept|throw|delete|new|operator|explicit|friend|inline|mutable|namespace|private|protected|public|template|this|virtual|volatile|auto|bool|break|case|catch|char|class|const|constexpr|continue|default|do|else|enum|extern|false|for|goto|if|register|return|short|signed|static|struct|switch|typedef|union|unsigned|using|wchar_t|while)\b'
-    numbers = r'\b\d+\b'
-    strings = r'\".*?\"'
-    comments = r'//.*?$|/\*.*?\*/'
-
-    # Function to apply color to matches
-    def colorize(match, color_code):
-        return f'{color_code}{match.group(0)}{COLOR_RESET}'
-
-    # Apply syntax highlighting
-    for line in code:
-        # String literals
-        line = re.sub(strings, lambda match: colorize(match, COLOR_STRING), line)
-        
-        # Comments (both single line and multi-line)
-        line = re.sub(comments, lambda match: colorize(match, COLOR_COMMENT), line, flags=re.MULTILINE|re.DOTALL)
-        
-        # Keywords
-        line = re.sub(keywords, lambda match: colorize(match, COLOR_KEYWORD), line)
-        
-        # Types
-        line = re.sub(types, lambda match: colorize(match, COLOR_TYPE), line)
-        
-        # Functions
-        line = re.sub(funcs, lambda match: colorize(match, COLOR_FUNC), line)
-        
-        # Numbers
-        line = re.sub(numbers, lambda match: colorize(match, COLOR_NUMBER), line)
-
-        # Print the syntax-highlighted line
-        print(line)
+    #using rich library instead of the old custom regex method
+    
+    curr_settings = load_settings()
+    
+    code = "\n".join(code)
+    
+    theme = curr_settings["theme"]
+    line_numbers = curr_settings["line_numbers"]
+    word_wrap = curr_settings["word_wrap"]
+    background_color = curr_settings["background_color"]
+    syntax = Syntax(code,
+                    lexer="cpp",
+                    theme=theme,
+                    line_numbers=line_numbers,
+                    word_wrap=word_wrap,
+                    background_color=background_color
+                    )
+    
+    console = Console()
+    
+    console.print(syntax)
 
 def get_compiler() -> str:
     #detect if Clang or GCC is installed
@@ -264,11 +263,107 @@ def get_compiler() -> str:
     except:
         return "g++" 
     finally:
-        return "g++" 
+        return "g++"
 
+def settings():
+    
+    availible_themes = [
+        "algol", "algol_nu", "arduino", "autumn", "borland", "abap", "colorful", "igor", "lovelace", "murphy", "pastie", "rainbow_dash", "stata-light", "trac", "vs", "emacs", "tango", "solarized-light", "manni", "gruvbox-light", "friendly", "friendly_grayscale", "perldoc", "paraiso-light", "zenburn", "nord", "material", "one-dark", "dracula", "nord-darker", "gruvbox-dark", "stata-dark", "paraiso-dark", "solarized-dark", "native", "inkpot", "fruity", "vim"
+    ]
+    
+    curr_settings = load_settings()
+    rprint(Markdown("## Current settings"))
+    for key, value in curr_settings.items():
+        print(f"{key: <20} - {value}")
+    
+    cmd_dict = { #command: description
+                "help": "Show this help message",
+                "save": "Save the current settings",
+                "reset": "Reset the settings to default",
+                "exit": "Exit the settings menu",
+                "set [key] [value]": "Set a setting to a value"
+                }
+
+    rprint(Markdown("## Commands"))
+    
+    for cmd, desc in cmd_dict.items():
+        print(f"{cmd: <20} - {desc}")
+    
+    line = ""
+    while True:
+        line = input("s>> ")
+        if line == "exit" or [ord(char) for char in line] == [24]: #weird windows specific ctrl+x char
+            break
+        elif line == "help":
+            rprint(Markdown("## Available settings"))
+            
+            availible_settings = { #settings: availible values
+                "compiler": ["clang", "g++"],
+                "theme": availible_themes,
+                "line_numbers": ["True", "False"],
+                "word_wrap": ["True", "False"],
+                "background_color": ["any hex color code"]
+            }
+            
+            for setting, values in availible_settings.items():
+                rprint(Markdown(f"**{setting}**"), ', '.join(values))
+                print()
+            
+            rprint(Markdown("## Commands"))
+            for cmd, desc in cmd_dict.items():
+                print(f"{cmd: <20} - {desc}")
+            
+        elif line == "save" or [ord(char) for char in line] == [19]: #weird windows specific ctrl+s char
+            save_settings(curr_settings)
+            print("Settings saved")
+            
+        elif line == "reset" or [ord(char) for char in line] == [18]: #weird windows specific ctrl+r char
+            curr_settings = {
+                "compiler": get_compiler(),
+                "theme": "solarized-dark",
+                "line_numbers": True,
+                "word_wrap": True,
+                "background_color": "#2E3440"
+            }
+            save_settings(curr_settings)
+            print("Settings reset to default")
+            
+        elif line.startswith("set"):
+            key, value = line.split(" ")[1:]
+            if key in curr_settings:
+                if value == "True":
+                    value = True
+                elif value == "False":
+                    value = False
+                curr_settings[key] = value
+            else:
+                print("Invalid key")
+        
+        else:
+            print([ord(char) for char in line])
+            print("Invalid command")
+        
+        print("Current settings:")
+        for key, value in curr_settings.items():
+            print(f"{key: <15} - {value}")
+
+
+def load_settings():
+    with open("settings.json", "r") as f:
+        settings = json.load(f)
+    return settings
+
+def save_settings(settings:dict):
+    with open("settings.json", "w") as f:
+        json.dump(settings, f, indent=4)
 
 def main(code = None):
     print_start_message()
+    short_cuts = {
+        chr(24): "exit", #ctrl+x
+        chr(19): "save", #ctrl+s
+        chr(18): "reset", #ctrl+r
+    }
     
     if code is not None:
         previous_code = code
@@ -276,6 +371,9 @@ def main(code = None):
         previous_code = []
     while True:
         line = input(">>> ")
+        
+        if line in short_cuts:
+            line = short_cuts[line]
         
         match line:
             case "exit":
@@ -288,6 +386,8 @@ def main(code = None):
                 print_license()
             case "version":
                 print(version, date, sep=" / ")
+            case "settings":
+                settings()
             case "run":
                 run_cpp_code(previous_code)
             case "":
@@ -306,11 +406,27 @@ def main(code = None):
                 print_start_message()
             case "show":
                 color_print_code(previous_code)
+            case "_load_sample":
+                with open("./sample.cpp", "r") as f:
+                    previous_code = f.readlines()
             case _:
                 previous_code.append(line)
 
 
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    
+    if not os.path.exists("settings.json"):
+        curr_settings = {
+            "compiler": get_compiler(),
+            "theme": "solarized-dark",
+            "line_numbers": True,
+            "word_wrap": True,
+        }
+        save_settings(curr_settings)
+    else:
+        curr_settings = load_settings()
+    
     args = sys.argv[1:]
     built_in_commands = ["help", "credits", "license", "version"]
     if len(args) > 0:

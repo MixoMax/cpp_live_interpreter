@@ -1,0 +1,7 @@
+{
+    "compiler": "g++",
+    "theme": "solarized-dark",
+    "line_numbers": true,
+    "word_wrap": true,
+    "background_color": "#2E3440"
+}
