@@ -5,8 +5,8 @@ import platform
 import re
 import time
 
-version = "r0.1alpha1"
-date = "Nov 11 2023"
+version = "r0.1-alpha"
+date = "2023-11-28"
 
 
 def compile(input_file:str, output_file:str):
