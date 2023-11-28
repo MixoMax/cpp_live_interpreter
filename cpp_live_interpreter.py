@@ -9,6 +9,27 @@ version = "r0.1alpha1"
 date = "Nov 11 2023"
 
 
+def compile(input_file:str, output_file:str):
+    compiler = get_compiler() #"clang" or "g++"
+    
+    if compiler == "clang":
+        cmd = f"clang++ -o {output_file} {input_file}"
+    elif compiler == "g++":
+        cmd = f"g++ -o {output_file} {input_file}"
+    
+    print(cmd)
+    
+    popen = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen.wait()
+    
+    if popen.returncode != 0:
+        print(popen.stderr.read().decode(), end="")
+        print(f"Compilation failed with exit code {popen.returncode}")
+    
+    
+    
+        
+
 def run_cpp_code(code:list[str]):
     t_start = time.time()
     if os.path.exists("temp.cpp"):
@@ -25,15 +46,10 @@ def run_cpp_code(code:list[str]):
             f.write(line)
             f.write("\n")
             
-    popen = subprocess.Popen(["g++", "temp.cpp", "-o", "temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    popen.wait()
-    if popen.returncode != 0:
-        print(popen.stderr.read().decode())
-        print(f"Compilation failed with code {popen.returncode} (0x{popen.returncode:02X})")
-        return
+    compile("temp.cpp", "temp.exe")
     t_finish_compile = time.time()
     
-    popen = subprocess.Popen(["temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen = subprocess.Popen(["./temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
     print(popen.stdout.read().decode(), end="")
     print(popen.stderr.read().decode(), end="")
@@ -127,10 +143,10 @@ def get_sys_info() -> list[str]:
 
     py_version = platform.python_version()
     
-    gpp_version = subprocess.Popen(["g++", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gpp_version.wait()
-    gpp_version = gpp_version.stdout.read().decode().split("\n")[0]
-    gpp_version = gpp_version.split(" ")[-1]
+    compiler = get_compiler()
+    compiler_version = subprocess.Popen([compiler, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    compiler_version.wait()
+    gpp_version = compiler_version.stdout.read().decode().split("\n")[0].split(" ")[-1]
     
     arch_info = platform.machine()
     os_info = platform.system()
@@ -235,6 +251,18 @@ def color_print_code(code: list[str]):
 
         # Print the syntax-highlighted line
         print(line)
+
+def get_compiler() -> str:
+    #detect if Clang or GCC is installed
+    #return "clang" or "gcc"
+    #prefer clang because it is faster
+    
+    popen = subprocess.Popen(["clang", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen.wait()
+    if popen.returncode == 0:
+        return "clang"
+    else:
+        return "g++"
 
 def main():
     print_start_message()
