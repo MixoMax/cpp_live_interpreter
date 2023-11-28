@@ -4,5 +4,5 @@ using namespace std;
 template<typename T>void print(T t) {cout << t << endl;}
 int main() {
 //End of auto injected code
-print(900/5);
+print("Hello World");
 }
