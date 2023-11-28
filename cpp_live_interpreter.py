@@ -25,10 +25,6 @@ def compile(input_file:str, output_file:str):
     if popen.returncode != 0:
         print(popen.stderr.read().decode(), end="")
         print(f"Compilation failed with exit code {popen.returncode}")
-    
-    
-    
-        
 
 def run_cpp_code(code:list[str]):
     t_start = time.time()
@@ -89,7 +85,7 @@ def insert_code_and_clean_up(code:list[str]) -> list[str]:
     return code
 
 def code_will_run(code:list[str]) -> bool:
-    # Turing complete check (not really)
+    # Absoulutly turing complete code checker
     
     code_str = "\n".join(code)
     
@@ -202,10 +198,13 @@ def print_license():
     print("\n".join(license_text))
 
 def print_start_message():
-    print("C++ Live Interpreter (v:{version} / {date})")
-    print(get_sys_info())
-    print('Type "help", "copyrigfht", "credits" or "license" for more information.')
-    print('Type "exit" to exit.')
+    start_message = [
+        f"C++ Live Interpreter (v:{version} / {date})",
+        get_sys_info(),
+        'Type "help", "copyright", "credits" or "license" for more information.',
+        'Type "exit" to exit.'
+    ]
+    print(*start_message, sep="\n")
 
 def color_print_code(code: list[str]):
     # ANSI escape codes for syntax highlighting
@@ -257,17 +256,24 @@ def get_compiler() -> str:
     #return "clang" or "gcc"
     #prefer clang because it is faster
     
-    popen = subprocess.Popen(["clang", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    popen.wait()
-    if popen.returncode == 0:
-        return "clang"
-    else:
-        return "g++"
+    try:
+        popen = subprocess.Popen(["clang", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        popen.wait()
+        if popen.returncode == 0:
+            return "clang"
+    except:
+        return "g++" 
+    finally:
+        return "g++" 
 
-def main():
+
+def main(code = None):
     print_start_message()
     
-    previous_code = []
+    if code is not None:
+        previous_code = code
+    else:
+        previous_code = []
     while True:
         line = input(">>> ")
         
@@ -319,6 +325,6 @@ if __name__ == "__main__":
                 case "version":
                     print(version, date, sep=" / ")
         else:
-            print("Unknown command")
+            main(args)
     else:
         main()
