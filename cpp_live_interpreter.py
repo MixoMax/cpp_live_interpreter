@@ -11,17 +11,17 @@ date = "2023-11-28"
 
 def compile(input_file:str, output_file:str):
     compiler = get_compiler() #"clang" or "g++"
-    
+
     if compiler == "clang":
         cmd = f"clang++ -o {output_file} {input_file}"
     elif compiler == "g++":
         cmd = f"g++ -o {output_file} {input_file}"
-    
+
     print(cmd)
-    
+
     popen = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
-    
+
     if popen.returncode != 0:
         print(popen.stderr.read().decode(), end="")
         print(f"Compilation failed with exit code {popen.returncode}")
@@ -30,26 +30,26 @@ def run_cpp_code(code:list[str]):
     t_start = time.time()
     if os.path.exists("temp.cpp"):
         os.remove("temp.cpp")
-    
+
     code = insert_code_and_clean_up(code)
     if not code_will_run(code):
         print("Code will not run. Please check brackets and curly brackets")
         return
-    
-    
+
+
     with open("temp.cpp", "w") as f:
         for line in code:
             f.write(line)
             f.write("\n")
-            
+
     compile("temp.cpp", "temp.exe")
     t_finish_compile = time.time()
-    
+
     popen = subprocess.Popen(["./temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
     print(popen.stdout.read().decode(), end="")
     print(popen.stderr.read().decode(), end="")
-    
+
     exit_code = popen.returncode
     t_finish_run = time.time()
     print(f"programm exited with code {exit_code} (0x{exit_code:02X}) after {t_finish_run - t_start:.3f}s (compile: {t_finish_compile - t_start:.3f}s, run: {t_finish_run - t_finish_compile:.3f}s)")
@@ -57,17 +57,17 @@ def run_cpp_code(code:list[str]):
 def insert_code_and_clean_up(code:list[str]) -> list[str]:
     # Insert code into template and clean up
     # like adding #include <iostream> and removing comments
-    
+
     includes = ["#include <iostream>"]
     for line in code:
         if line.startswith("#include"):
             includes.append(line)
-            
+
     code = [line for line in code if not line.startswith("#include")]
-    
-    
+
+
     code = [f"print({line});" if is_direct_print(line) else line for line in code]
-    
+
     template_lines = [
         "//Auto injected code from cpp_live_interpreter.py",
         *includes,
@@ -76,19 +76,19 @@ def insert_code_and_clean_up(code:list[str]) -> list[str]:
         "int main() {",
         "//End of auto injected code"
     ]
-    
+
     code = template_lines + code + ["}"]
-    
-    
-    
-    
+
+
+
+
     return code
 
 def code_will_run(code:list[str]) -> bool:
     # Absoulutly turing complete code checker
-    
+
     code_str = "\n".join(code)
-    
+
     #delete string literals
     while True:
         start = code_str.find("\"")
@@ -96,7 +96,7 @@ def code_will_run(code:list[str]) -> bool:
             break
         end = code_str.find("\"", start+1)
         code_str = code_str[:start] + code_str[end+1:]
-    
+
     #delete comments
     while True:
         start = code_str.find("//")
@@ -104,8 +104,8 @@ def code_will_run(code:list[str]) -> bool:
             break
         end = code_str.find("\n", start+1)
         code_str = code_str[:start] + code_str[end+1:]
-    
-    
+
+
     # count brackets and curly brackets
     bracket_count = 0
     curly_bracket_count = 0
@@ -115,7 +115,7 @@ def code_will_run(code:list[str]) -> bool:
             case "}": curly_bracket_count -= 1
             case "(": bracket_count += 1
             case ")": bracket_count -= 1
-    
+
     if bracket_count == 0 and curly_bracket_count == 0:
         return True
     else:
@@ -124,9 +124,9 @@ def code_will_run(code:list[str]) -> bool:
 def is_direct_print(line:str) -> bool:
     # Check if a line is a direct print statement
     #it can only include numbers, vars, and operators
-    
+
     allowed_chars = "0123456789+-*/%() "
-    
+
     r = all([char in allowed_chars for char in line])
     if not r:
         return False
@@ -138,21 +138,21 @@ def get_sys_info() -> list[str]:
     # like os, architechture, g++ version, etc
 
     py_version = platform.python_version()
-    
+
     compiler = get_compiler()
     compiler_version = subprocess.Popen([compiler, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     compiler_version.wait()
     gpp_version = compiler_version.stdout.read().decode().split("\n")[0].split(" ")[-1]
-    
+
     arch_info = platform.machine()
     os_info = platform.system()
     os_release_info = platform.release()
     os_arch_info = platform.architecture()
-    
+
     sys_info = f"{os_info} {os_release_info} - {arch_info} ({os_arch_info[0]}) - Python {py_version} - g++ v{gpp_version}"
-    
+
     return sys_info
-            
+
 def print_help():
     cmd_dict = { #command: description
         "help*": "Show this help message",
@@ -232,19 +232,19 @@ def color_print_code(code: list[str]):
     for line in code:
         # String literals
         line = re.sub(strings, lambda match: colorize(match, COLOR_STRING), line)
-        
+
         # Comments (both single line and multi-line)
         line = re.sub(comments, lambda match: colorize(match, COLOR_COMMENT), line, flags=re.MULTILINE|re.DOTALL)
-        
+
         # Keywords
         line = re.sub(keywords, lambda match: colorize(match, COLOR_KEYWORD), line)
-        
+
         # Types
         line = re.sub(types, lambda match: colorize(match, COLOR_TYPE), line)
-        
+
         # Functions
         line = re.sub(funcs, lambda match: colorize(match, COLOR_FUNC), line)
-        
+
         # Numbers
         line = re.sub(numbers, lambda match: colorize(match, COLOR_NUMBER), line)
 
@@ -255,28 +255,28 @@ def get_compiler() -> str:
     #detect if Clang or GCC is installed
     #return "clang" or "gcc"
     #prefer clang because it is faster
-    
+
     try:
         popen = subprocess.Popen(["clang", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         popen.wait()
         if popen.returncode == 0:
             return "clang"
     except:
-        return "g++" 
+        return "g++"
     finally:
-        return "g++" 
+        return "g++"
 
 
 def main(code = None):
     print_start_message()
-    
+
     if code is not None:
         previous_code = code
     else:
         previous_code = []
     while True:
         line = input(">>> ")
-        
+
         match line:
             case "exit":
                 return 0
@@ -301,7 +301,11 @@ def main(code = None):
                 else:
                     print("No code to pop")
             case "clear":
-                os.system("cls")
+                # Different commands between OS
+                if platform.system() in ['Linux', 'Darwin']:
+                    os.system("clear")
+                else:
+                    os.system("cls")
                 previous_code = []
                 print_start_message()
             case "show":
