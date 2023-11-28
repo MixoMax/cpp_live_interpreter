@@ -32,8 +32,12 @@ def compile(input_file:str, output_file:str):
 
 def run_cpp_code(code:list[str]):
     t_start = time.time()
-    if os.path.exists("temp.cpp"):
-        os.remove("temp.cpp")
+    
+    cpp_file = "temp.cpp"
+    exe_file = "temp.exe"
+    
+    if os.path.exists(cpp_file):
+        os.remove(cpp_file)
 
     code = insert_code_and_clean_up(code)
     if not code_will_run(code):
@@ -41,15 +45,15 @@ def run_cpp_code(code:list[str]):
         return
 
 
-    with open("temp.cpp", "w") as f:
+    with open(cpp_file, "w") as f:
         for line in code:
             f.write(line)
             f.write("\n")
 
-    compile("temp.cpp", "temp.exe")
+    compile(cpp_file, exe_file)
     t_finish_compile = time.time()
 
-    popen = subprocess.Popen(["./temp.exe"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    popen = subprocess.Popen([f"./{exe_file}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     popen.wait()
 
     output = popen.stdout.read().decode()
@@ -62,6 +66,10 @@ def run_cpp_code(code:list[str]):
     exit_code = popen.returncode
     t_finish_run = time.time()
     print(f"programm exited with code {exit_code} (0x{exit_code:02X}) after {t_finish_run - t_start:.3f}s (compile: {t_finish_compile - t_start:.2f}s, run: {t_finish_run - t_finish_compile:.2f}s)")
+    
+    #delete temp files
+    os.remove(cpp_file)
+    os.remove(exe_file)
 
 def insert_code_and_clean_up(code:list[str]) -> list[str]:
     # Insert code into template and clean up
@@ -180,6 +188,7 @@ def print_help():
         "credits*": "Show credits",
         "license*": "Show license",
         "version*": "Show version",
+        "load* [file_path]": "load code from a file",
         "exit": "Exit the interpreter",
         "settings*": "Show and edit settings",
         "end": "End the code input and run the code",
@@ -251,6 +260,25 @@ def color_print_code(code: list[str]):
     
     console.print(syntax)
 
+def load(args:list[str]) -> list[str, list[str]]: #print_string, code
+    argc = len(args)
+    
+    print_string = ""
+    code = []
+    
+    if argc > 1:
+        file_path = args[1]
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                code = f.readlines()
+        else:
+            print_string = f"File {file_path} does not exist"
+    
+    if argc < 2:
+        print_string = "Usage: load [file_path] [^run/end]"
+    
+    return print_string, code
+                
 
 def get_compiler() -> str:
     #detect if Clang or GCC is installed
@@ -381,6 +409,22 @@ def main(code = None):
         if line in short_cuts:
             line = short_cuts[line]
         
+        if line.startswith("load"):
+            args = line.split(" ")
+            print_string, code = load(args)
+            
+            if print_string != "":
+                print(print_string)
+            if code != []:
+                previous_code = code
+            else:
+                print("No code loaded")
+                continue
+            
+            if len(args) == 3:
+                if args[2] in ["run", "end"]:
+                    line = args[2]
+                    
         match line:
             case "exit":
                 return 0
@@ -392,8 +436,10 @@ def main(code = None):
                 print_license()
             case "version":
                 print(version, date, sep=" / ")
+                
             case "settings":
                 settings()
+                
             case "run":
                 run_cpp_code(previous_code)
             case "":
