@@ -140,10 +140,14 @@ def code_will_run(code:list[str]) -> bool:
     curly_bracket_count = 0
     for char in code_str:
         match char:
-            case "{": curly_bracket_count += 1
-            case "}": curly_bracket_count -= 1
-            case "(": bracket_count += 1
-            case ")": bracket_count -= 1
+            case "{":
+                curly_bracket_count += 1
+            case "}":
+                curly_bracket_count -= 1
+            case "(":
+                bracket_count += 1
+            case ")":
+                bracket_count -= 1
 
     if bracket_count == 0 and curly_bracket_count == 0:
         return True
@@ -154,7 +158,7 @@ def is_direct_print(line:str) -> bool:
     # Check if a line is a direct print statement
     #it can only include numbers, vars, and operators
 
-    allowed_chars = "0123456789+-*/%() "
+    allowed_chars = "0123456789+-*/%() ."
 
     r = all([char in allowed_chars for char in line])
     if not r:
