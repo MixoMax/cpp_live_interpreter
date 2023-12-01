@@ -278,7 +278,13 @@ def load(args:list[str]) -> list[str, list[str]]: #print_string, code
         print_string = "Usage: load [file_path] [^run/end]"
     
     return print_string, code
-                
+
+def clear_screen():
+    # Different commands between OS
+    if platform.system() in ["Linux", "Darwin"]: #Linux or MacOS
+        os.system("clear")
+    else:
+        os.system("cls")           
 
 def get_compiler() -> str:
     #detect if Clang or GCC is installed
@@ -453,11 +459,7 @@ def main(code = None):
                 else:
                     print("No code to pop")
             case "clear":
-                # Different commands between OS
-                if platform.system() in ['Linux', 'Darwin']:
-                    os.system("clear")
-                else:
-                    os.system("cls")
+                clear_screen()
                 previous_code = []
                 print_start_message()
             case "show":
@@ -465,12 +467,22 @@ def main(code = None):
             case "_load_sample":
                 with open("./sample.cpp", "r") as f:
                     previous_code = f.readlines()
+            case "_compile_this":
+                #compile "cpp_live_interpreter.py" to "cpp_live_interpreter.exe" using pyinstaller
+                #cmd = pyinstaller --noconfirm --onefile --console --name "C++ Live Interpreter" --add-data "/home/linus/Documents/GitHub/cpp_live_interpreter:."  "/home/linus/Documents/GitHub/cpp_live_interpreter/cpp_live_interpreter.py"
+                py_file_path = os.path.realpath(__file__)
+                py_file_dir = os.path.dirname(py_file_path)
+                
+                cmd = f"pyinstaller --noconfirm --onefile --console --name \"C++ Live Interpreter\" --add-data \"{py_file_dir}:.\"  \"{py_file_path}\""
+                print(cmd)
+                subprocess.run(cmd, shell=True)
             case _:
                 previous_code.append(line)
 
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    clear_screen()
     
     if not os.path.exists("settings.json"):
         curr_settings = {
@@ -478,6 +490,7 @@ if __name__ == "__main__":
             "theme": "solarized-dark",
             "line_numbers": True,
             "word_wrap": True,
+            "background_color": "#2E3440"
         }
         save_settings(curr_settings)
     else:
