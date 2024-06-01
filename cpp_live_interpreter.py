@@ -398,6 +398,35 @@ def save_settings(settings:dict):
     with open("settings.json", "w") as f:
         json.dump(settings, f, indent=4)
 
+def _compile_this():
+    
+    py_file_path = os.path.realpath(__file__)
+    py_file_dir = os.path.dirname(py_file_path)
+    
+    cmd = f"pyinstaller --noconfirm --onefile --console --name \"C++ Live Interpreter\" --add-data \"{py_file_dir}:.\"  \"{py_file_path}\""
+    
+    subprocess.run(cmd, shell=True)
+    
+    #move "./dist/C++ Live Interpreter.exe" to ./cppl.exe
+    os.rename("./dist/C++ Live Interpreter.exe", "./cppl.exe")
+    
+    #delete ./dist, ./build, and "./C++ Live Interpreter.spec"
+    os.remove("./C++ Live Interpreter.spec")
+    
+    #os.rmdir("./dist") wont work because it is not empty
+    if os.path.exists("./dist"):
+        for file in os.listdir("./dist"):
+            os.remove(f"./dist/{file}")
+        os.rmdir("./dist")
+    
+    if os.path.exists("./build"):
+        for file in os.listdir("./build"):
+            os.remove(f"./build/{file}")
+        os.rmdir("./build")
+    
+    print("Done")
+
+
 def main(code = None):
     print_start_message()
 
@@ -472,14 +501,7 @@ def main(code = None):
                 with open("./sample.cpp", "r") as f:
                     previous_code = f.readlines()
             case "_compile_this":
-                #compile "cpp_live_interpreter.py" to "cpp_live_interpreter.exe" using pyinstaller
-                #cmd = pyinstaller --noconfirm --onefile --console --name "C++ Live Interpreter" --add-data "/home/linus/Documents/GitHub/cpp_live_interpreter:."  "/home/linus/Documents/GitHub/cpp_live_interpreter/cpp_live_interpreter.py"
-                py_file_path = os.path.realpath(__file__)
-                py_file_dir = os.path.dirname(py_file_path)
-                
-                cmd = f"pyinstaller --noconfirm --onefile --console --name \"C++ Live Interpreter\" --add-data \"{py_file_dir}:.\"  \"{py_file_path}\""
-                print(cmd)
-                subprocess.run(cmd, shell=True)
+                _compile_this()
             case _:
                 previous_code.append(line)
 
